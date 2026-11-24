@@ -1,0 +1,93 @@
+const { gunMenusunuGetir, haftalikMenuGetir, menuDetayGetir, menuOlustur, menuYemekEkle, yoneticiMenuListesi, yemekleriGetir } = require("../veri/menuVeri");
+const { redisClient } = require("../ara_katman/oturum");
+
+const MENU_SURE = 86400;
+
+function bugunTarih() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
+}
+
+function haftaBasi() {
+  const bugun = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Istanbul" }));
+  const gun = bugun.getDay();
+  const fark = gun === 0 ? -6 : 1 - gun;
+  bugun.setDate(bugun.getDate() + fark);
+  return bugun.toLocaleDateString("sv-SE");
+}
+
+function haftaSonu() {
+  const bas = new Date(haftaBasi());
+  bas.setDate(bas.getDate() + 6);
+  return bas.toLocaleDateString("sv-SE");
+}
+
+async function gunMenusu(req, res) {
+  const { yemekhane_id, ogun_id, tarih } = req.query;
+  if (!yemekhane_id || !ogun_id) {
+    return res.status(400).json({ mesaj: "yemekhane_id ve ogun_id zorunludur." });
+  }
+  const gun = tarih || bugunTarih();
+  const r = await redisClient();
+  const anahtar = `menu:${yemekhane_id}:${gun}:${ogun_id}`;
+  const onbellek = await r.get(anahtar);
+  if (onbellek) {
+    console.log(`[onbellek HIT] ${anahtar}`);
+    return res.json(JSON.parse(onbellek));
+  }
+  console.log(`[onbellek MISS] ${anahtar}`);
+  const satirlar = await gunMenusunuGetir(yemekhane_id, ogun_id, gun);
+  await r.set(anahtar, JSON.stringify(satirlar), { EX: MENU_SURE });
+  res.json(satirlar);
+}
+
+async function haftalikMenu(req, res) {
+  const { yemekhane_id } = req.query;
+  if (!yemekhane_id) return res.status(400).json({ mesaj: "yemekhane_id zorunludur." });
+  const satirlar = await haftalikMenuGetir(yemekhane_id, haftaBasi(), haftaSonu());
+  res.json(satirlar);
+}
+
+async function menuDetay(req, res) {
+  const satirlar = await menuDetayGetir(req.params.id);
+  if (!satirlar.length) return res.status(404).json({ mesaj: "Menü bulunamadı." });
+  res.json(satirlar);
+}
+
+async function yeniMenuOlustur(req, res) {
+  const { yemekhane_id, tarih, ogun_id, ogrenci_fiyati, personel_fiyati, yemek_idleri } = req.body;
+  if (!yemekhane_id || !tarih || !ogun_id || !ogrenci_fiyati || !personel_fiyati || !yemek_idleri?.length) {
+    return res.status(400).json({ mesaj: "Tüm alanlar zorunludur." });
+  }
+  const menuId = await menuOlustur(yemekhane_id, tarih, ogun_id, ogrenci_fiyati, personel_fiyati);
+  await menuYemekEkle(menuId, yemek_idleri);
+  const r = await redisClient();
+  await r.del(`menu:${yemekhane_id}:${tarih}:${ogun_id}`);
+  res.status(201).json({ menu_id: menuId });
+}
+
+async function menuGuncelle(req, res) {
+  const menuId = req.params.id;
+  const { yemek_idleri } = req.body;
+  if (!yemek_idleri?.length) return res.status(400).json({ mesaj: "yemek_idleri zorunludur." });
+  const detay = await menuDetayGetir(menuId);
+  if (!detay.length) return res.status(404).json({ mesaj: "Menü bulunamadı." });
+  await menuYemekEkle(menuId, yemek_idleri);
+  const r = await redisClient();
+  const { yemekhane_id, tarih, ogun_id } = detay[0];
+  await r.del(`menu:${yemekhane_id}:${tarih}:${ogun_id}`);
+  res.json({ mesaj: "Menü güncellendi." });
+}
+
+async function yoneticiPanel(req, res) {
+  const { yemekhane_id } = req.query;
+  if (!yemekhane_id) return res.status(400).json({ mesaj: "yemekhane_id zorunludur." });
+  const liste = await yoneticiMenuListesi(yemekhane_id);
+  res.json(liste);
+}
+
+async function yemekListesi(req, res) {
+  const yemekler = await yemekleriGetir();
+  res.json(yemekler);
+}
+
+module.exports = { gunMenusu, haftalikMenu, menuDetay, yeniMenuOlustur, menuGuncelle, yoneticiPanel, yemekListesi };
