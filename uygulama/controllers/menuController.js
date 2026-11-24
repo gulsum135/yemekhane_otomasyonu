@@ -1,7 +1,29 @@
 const { gunMenusunuGetir, haftalikMenuGetir, menuDetayGetir, menuOlustur, menuYemekEkle, yoneticiMenuListesi, yemekleriGetir } = require("../veri/menuVeri");
 const { redisClient } = require("../ara_katman/oturum");
 const { kullaniciyiIdIleGetir } = require("../veri/kullaniciVeri");
-const MENU_SURE = 86400;
+
+function gunSonunaKalanSaniye() {
+  const simdi = new Date();
+
+  const parcalar = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Istanbul",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(simdi);
+
+  const degerler = Object.fromEntries(
+    parcalar.map((parca) => [parca.type, parca.value])
+  );
+
+  const gecenSaniye =
+    Number(degerler.hour) * 3600 +
+    Number(degerler.minute) * 60 +
+    Number(degerler.second);
+
+  return 86400 - gecenSaniye;
+}
 
 function bugunTarih() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
@@ -36,7 +58,9 @@ async function gunMenusu(req, res) {
   }
   console.log(`[onbellek MISS] ${anahtar}`);
   const satirlar = await gunMenusunuGetir(yemekhane_id, ogun_id, gun);
-  await r.set(anahtar, JSON.stringify(satirlar), { EX: MENU_SURE });
+ await r.set(anahtar, JSON.stringify(satirlar), {
+  EX: gunSonunaKalanSaniye()
+});
   res.json(satirlar);
 }
 
@@ -111,7 +135,17 @@ async function menuGuncelle(req, res) {
   await menuYemekEkle(menuId, yemek_idleri);
   const r = await redisClient();
   const { yemekhane_id, tarih, ogun_id } = detay[0];
-  await r.del(`menu:${yemekhane_id}:${tarih}:${ogun_id}`);
+
+const tarihMetni = tarih instanceof Date
+  ? tarih.toLocaleDateString("sv-SE", {
+      timeZone: "Europe/Istanbul"
+    })
+  : String(tarih).slice(0, 10);
+
+const anahtar = `menu:${yemekhane_id}:${tarihMetni}:${ogun_id}`;
+
+const silinen = await r.del(anahtar);
+console.log(`[onbellek SIL] ${anahtar}, silinen: ${silinen}`);
   res.json({ mesaj: "Menü güncellendi." });
 }
 
