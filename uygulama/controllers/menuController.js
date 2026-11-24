@@ -1,6 +1,6 @@
 const { gunMenusunuGetir, haftalikMenuGetir, menuDetayGetir, menuOlustur, menuYemekEkle, yoneticiMenuListesi, yemekleriGetir } = require("../veri/menuVeri");
 const { redisClient } = require("../ara_katman/oturum");
-
+const { kullaniciyiIdIleGetir } = require("../veri/kullaniciVeri");
 const MENU_SURE = 86400;
 
 function bugunTarih() {
@@ -42,9 +42,46 @@ async function gunMenusu(req, res) {
 
 async function haftalikMenu(req, res) {
   const { yemekhane_id } = req.query;
-  if (!yemekhane_id) return res.status(400).json({ mesaj: "yemekhane_id zorunludur." });
-  const satirlar = await haftalikMenuGetir(yemekhane_id, haftaBasi(), haftaSonu());
-  res.json(satirlar);
+
+  if (!yemekhane_id) {
+    return res.status(400).json({
+      mesaj: "yemekhane_id zorunludur."
+    });
+  }
+
+  const kullanici = await kullaniciyiIdIleGetir(req.kullaniciId);
+
+  if (!kullanici) {
+    return res.status(404).json({ mesaj: "Kullanıcı bulunamadı." });
+  }
+
+  const satirlar = await haftalikMenuGetir(
+    yemekhane_id,
+    haftaBasi(),
+    haftaSonu()
+  );
+
+  const simdi = new Date();
+
+  const sonuc = satirlar.map((menu) => {
+    const sureBitti = simdi >= new Date(menu.rezervasyon_son);
+    const kapasiteDolu = Number(menu.bos_yer) <= 0;
+
+    return {
+      ...menu,
+      fiyat: kullanici.rol === "ogrenci"
+        ? menu.ogrenci_fiyati
+        : menu.personel_fiyati,
+      rezervasyon_yapilabilir: !sureBitti && !kapasiteDolu,
+      islem_metni: sureBitti
+        ? "Süre Doldu"
+        : kapasiteDolu
+          ? "Kapasite Dolu"
+          : "Rezerve Et"
+    };
+  });
+
+  res.json(sonuc);
 }
 
 async function menuDetay(req, res) {

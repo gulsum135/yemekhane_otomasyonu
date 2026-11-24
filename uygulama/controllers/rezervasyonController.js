@@ -14,7 +14,16 @@ async function rezervasyonIptalHandler(req, res) {
 
 async function rezervasyonlarimiGetir(req, res) {
   const liste = await kullaniciRezervasyonlariGetir(req.kullaniciId);
-  res.json(liste);
+  const simdi = new Date();
+
+  const sonuc = liste.map((rezervasyon) => ({
+    ...rezervasyon,
+    iptal_edilebilir:
+      rezervasyon.durum === "aktif" &&
+      simdi < new Date(rezervasyon.rezervasyon_son)
+  }));
+
+  res.json(sonuc);
 }
 
 module.exports = { rezervasyonYapHandler, rezervasyonIptalHandler, rezervasyonlarimiGetir };

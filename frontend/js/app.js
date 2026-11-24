@@ -249,9 +249,7 @@ document.getElementById("btn-haftalik-getir").addEventListener("click", async ()
     const simdi = new Date();
     liste.forEach((satir) => {
       const sonZaman = new Date(satir.rezervasyon_son);
-      const sureBitti = simdi >= sonZaman;
-      const fiyat = aktifKullanici && aktifKullanici.rol === "ogrenci" ? satir.ogrenci_fiyati : satir.personel_fiyati;
-      const dolduMu = Number(satir.bos_yer) <= 0;
+      const fiyat = satir.fiyat;
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -263,8 +261,8 @@ document.getElementById("btn-haftalik-getir").addEventListener("click", async ()
         <td>
           <button class="dugme dugme-otomatik btn-rezerve" 
             data-id="${satir.menu_id}"
-            ${sureBitti || dolduMu ? "disabled" : ""}>
-            ${sureBitti ? "Süre Doldu" : dolduMu ? "Kapasite Dolu" : "Rezerve Et"}
+            ${satir.rezervasyon_yapilabilir ? "" : "disabled"}>
+            ${satir.islem_metni}
           </button>
         </td>
       `;
@@ -306,7 +304,7 @@ async function rezervasyonlariYukle() {
     const simdi = new Date();
     liste.forEach((r) => {
       const sonZaman = new Date(r.rezervasyon_son);
-      const iptalEdilebilir = r.durum === "aktif" && simdi < sonZaman;
+      const iptalEdilebilir = r.iptal_edilebilir;
 
       const tr = document.createElement("tr");
       tr.innerHTML = `

@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { yazmaHavuzu, okumaHavuzu } = require("../veri/baglanti");
+const { kullaniciyiIdIleGetir } = require("../veri/kullaniciVeri");
 
 const OTURUM_SURE = 30 * 60;
 
@@ -61,15 +61,19 @@ async function kimlikDogrula(req, res, next) {
 }
 
 async function yoneticiMi(req, res, next) {
-  const { okumaHavuzu } = require("../veri/baglanti");
-  const [satirlar] = await okumaHavuzu.execute(
-    "SELECT rol FROM kullanicilar WHERE id = ? LIMIT 1",
-    [req.kullaniciId]
-  );
-  if (!satirlar[0] || satirlar[0].rol !== "yonetici") {
-    return res.status(403).json({ mesaj: "Bu işlem için yönetici yetkisi gerekiyor." });
+  try {
+    const kullanici = await kullaniciyiIdIleGetir(req.kullaniciId);
+
+    if (!kullanici || kullanici.rol !== "yonetici") {
+      return res.status(403).json({
+        mesaj: "Bu işlem için yönetici yetkisi gerekiyor."
+      });
+    }
+
+    next();
+  } catch (hata) {
+    next(hata);
   }
-  next();
 }
 
 module.exports = { oturumOlustur, oturumSil, tokenAl, kimlikDogrula, yoneticiMi, redisClient };
