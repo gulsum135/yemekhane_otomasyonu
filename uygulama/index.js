@@ -11,7 +11,10 @@ const { gunMenusu, haftalikMenu, menuDetay, yeniMenuOlustur, menuGuncelle, yonet
 const { rezervasyonYapHandler, rezervasyonIptalHandler, rezervasyonlarimiGetir } = require("./controllers/rezervasyonController");
 const { degerlendirmeEkleHandler, degerlendirilebilirMenuler } = require("./controllers/degerlendirmeController");
 const { kimlikDogrula, yoneticiMi } = require("./ara_katman/oturum");
-
+const {
+  profilGetir,
+  profilKaydet
+} = require("./controllers/profilController");
 function hataYakala(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch((hata) => {
     console.error(hata);
@@ -48,6 +51,8 @@ app.post("/api/degerlendirme", kimlikDogrula, hataYakala(degerlendirmeEkleHandle
 app.get("/api/yonetici/panel", kimlikDogrula, yoneticiMi, hataYakala(yoneticiPanel));
 app.post("/api/yonetici/menu", kimlikDogrula, yoneticiMi, hataYakala(yeniMenuOlustur));
 app.put("/api/yonetici/menu/:id", kimlikDogrula, yoneticiMi, hataYakala(menuGuncelle));
+app.get("/api/profil", kimlikDogrula, hataYakala(profilGetir));
+app.put("/api/profil", kimlikDogrula, hataYakala(profilKaydet));
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Sunucu ${PORT} portunda calisiyor.`);

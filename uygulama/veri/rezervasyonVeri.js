@@ -1,9 +1,9 @@
 const { okumaHavuzu, yazmaHavuzu } = require("./baglanti");
 
-async function rezervasyonYap(kullaniciId, menuId) {
+async function rezervasyonYap(kullaniciId, menuId, porsiyon) {
   const [sonuc] = await yazmaHavuzu.execute(
-    "CALL sp_rezervasyon_yap(?, ?)",
-    [kullaniciId, menuId]
+    "CALL sp_rezervasyon_yap(?, ?, ?)",
+    [kullaniciId, menuId, porsiyon]
   );
 
   return sonuc[0][0];
@@ -25,6 +25,7 @@ async function kullaniciRezervasyonlariGetir(kullaniciId) {
        r.menu_id,
        r.durum,
        r.ucret,
+       r.porsiyon,
        m.tarih,
        yh.ad AS yemekhane,
        o.ad AS ogun,

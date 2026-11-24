@@ -212,8 +212,10 @@ document.getElementById("btn-gun-getir").addEventListener("click", async () => {
     }
 
     let toplamKalori = 0;
+
     liste.forEach((satir) => {
       toplamKalori += Number(satir.kalori || 0);
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${satir.kategori}</td>
@@ -222,6 +224,17 @@ document.getElementById("btn-gun-getir").addEventListener("click", async () => {
         <td>${satir.vejetaryen ? "Evet" : "Hayır"}</td>
         <td>${satir.alerjenler || "-"}</td>
       `;
+
+      if (satir.alerjen_uyarisi) {
+        tr.style.backgroundColor = "var(--hata-zemin)";
+
+        const uyari = document.createElement("strong");
+        uyari.textContent = " ⚠ Seçtiğiniz alerjenleri içerir.";
+        uyari.style.color = "var(--hata)";
+
+        tr.lastElementChild.appendChild(uyari);
+      }
+
       tbody.appendChild(tr);
     });
 
@@ -259,6 +272,12 @@ document.getElementById("btn-haftalik-getir").addEventListener("click", async ()
         <td>${fiyat} TL</td>
         <td>${sonZaman.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</td>
         <td>
+          <select class="porsiyon-secimi" aria-label="Porsiyon seçimi">
+            <option value="tam">Tam porsiyon</option>
+            ${satir.yarim_porsiyon_uygun
+              ? '<option value="yarim">Yarım porsiyon — tam fiyatın %60’ı</option>'
+              : ""}
+          </select>
           <button class="dugme dugme-otomatik btn-rezerve" 
             data-id="${satir.menu_id}"
             ${satir.rezervasyon_yapilabilir ? "" : "disabled"}>
@@ -272,10 +291,15 @@ document.getElementById("btn-haftalik-getir").addEventListener("click", async ()
     tbody.querySelectorAll(".btn-rezerve").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const menuId = btn.getAttribute("data-id");
+        const porsiyon = btn.closest("tr")
+          .querySelector(".porsiyon-secimi").value;
         try {
           const sonuc = await apiIstek("/api/rezervasyon", {
             method: "POST",
-            body: { menu_id: Number(menuId) }
+            body: {
+              menu_id: Number(menuId),
+              porsiyon
+            }
           });
           bildirimGoster(`Rezervasyon başarılı! Kalan Bakiye: ${Number(sonuc.bakiye).toFixed(2)} TL`, "basari");
           bakiyeGuncelle();
@@ -297,7 +321,7 @@ async function rezervasyonlariYukle() {
     tbody.innerHTML = "";
 
     if (!liste || liste.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6">Henüz bir rezervasyonunuz yok.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">Henüz bir rezervasyonunuz yok.</td></tr>`;
       return;
     }
 
@@ -312,6 +336,7 @@ async function rezervasyonlariYukle() {
         <td>${r.yemekhane}</td>
         <td>${r.ogun}</td>
         <td>${Number(r.ucret).toFixed(2)} TL</td>
+        <td>${r.porsiyon === "yarim" ? "Yarım" : "Tam"}</td>
         <td><span class="etiket etiket-${r.durum}">${r.durum}</span></td>
         <td>
           ${iptalEdilebilir ? `<button class="dugme dugme-tehlike dugme-otomatik btn-iptal" data-id="${r.id}">İptal Et</button>` : "-"}
@@ -561,3 +586,56 @@ document.getElementById("form-menu-duzenle").addEventListener("submit", async (e
 document.getElementById("btn-duzenleme-vazgec").addEventListener("click", () => {
   document.getElementById("form-menu-duzenle").style.display = "none";
 });
+
+async function profilYukle() {
+  try {
+    const [alerjenler, profil] = await Promise.all([
+      apiIstek("/api/alerjenler"),
+      apiIstek("/api/profil")
+    ]);
+
+    const secimler = new Set(profil.alerjen_idleri.map(Number));
+    const alan = document.getElementById("profil-alerjenler");
+    alan.replaceChildren();
+
+    for (const alerjen of alerjenler) {
+      const etiket = document.createElement("label");
+      const kutu = document.createElement("input");
+
+      kutu.type = "checkbox";
+      kutu.value = alerjen.id;
+      kutu.checked = secimler.has(Number(alerjen.id));
+      kutu.style.width = "auto";
+      kutu.style.marginRight = "8px";
+
+      etiket.append(kutu, document.createTextNode(alerjen.ad));
+      alan.appendChild(etiket);
+    }
+  } catch (hata) {
+    bildirimGoster(hata.message, "hata");
+  }
+}
+
+document.querySelector('[data-ekran="ekran-profil"]')
+  .addEventListener("click", profilYukle);
+
+document.getElementById("form-profil")
+  .addEventListener("submit", async (olay) => {
+    olay.preventDefault();
+
+    const alerjen_idleri = Array.from(
+      document.querySelectorAll("#profil-alerjenler input:checked"),
+      (kutu) => Number(kutu.value)
+    );
+
+    try {
+      const sonuc = await apiIstek("/api/profil", {
+        method: "PUT",
+        body: { alerjen_idleri }
+      });
+
+      bildirimGoster(sonuc.mesaj, "basari");
+    } catch (hata) {
+      bildirimGoster(hata.message, "hata");
+    }
+  });

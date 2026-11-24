@@ -25,6 +25,7 @@
         <button class="nav-btn" data-ekran="ekran-rezervasyonlarim">Rezervasyonlarım</button>
         <button class="nav-btn" data-ekran="ekran-bakiye">Bakiye</button>
         <button class="nav-btn" data-ekran="ekran-degerlendirme">Değerlendirme</button>
+        <button class="nav-btn" data-ekran="ekran-profil">Profil</button>
         <button class="nav-btn" data-ekran="ekran-yonetici" id="nav-yonetici" style="display:none;">Yönetici Paneli</button>
       </nav>
     </div>
@@ -120,6 +121,7 @@
               <th>Yemekhane</th>
               <th>Öğün</th>
               <th>Ücret</th>
+              <th>Porsiyon</th>
               <th>Durum</th>
               <th>İşlem</th>
             </tr>
@@ -259,6 +261,15 @@
         <button type="submit" class="dugme">Değişiklikleri Kaydet</button>
         <button type="button" id="btn-duzenleme-vazgec"
                 class="dugme dugme-ikincil">Vazgeç</button>
+      </form>
+    </section>
+
+    <section id="ekran-profil" class="kart" style="display:none;">
+      <h2>Alerjen Tercihlerim</h2>
+
+      <form id="form-profil">
+        <div id="profil-alerjenler"></div>
+        <button type="submit" class="dugme">Tercihleri Kaydet</button>
       </form>
     </section>
   </main>

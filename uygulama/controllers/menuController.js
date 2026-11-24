@@ -1,4 +1,5 @@
-const { gunMenusunuGetir, haftalikMenuGetir, menuDetayGetir, menuOlustur, menuYemekEkle, yoneticiMenuListesi, yemekleriGetir } = require("../veri/menuVeri");
+
+const { alerjenleriGetir } = require("../veri/profilVeri");const { gunMenusunuGetir, haftalikMenuGetir, menuDetayGetir, menuOlustur, menuYemekEkle, yoneticiMenuListesi, yemekleriGetir } = require("../veri/menuVeri");
 const { redisClient } = require("../ara_katman/oturum");
 const { kullaniciyiIdIleGetir } = require("../veri/kullaniciVeri");
 
@@ -42,26 +43,59 @@ function haftaSonu() {
   bas.setDate(bas.getDate() + 6);
   return bas.toLocaleDateString("sv-SE");
 }
+async function alerjenUyarilariniEkle(satirlar, kullaniciId) {
+  const tercihler = new Set(
+    (await alerjenleriGetir(kullaniciId)).map(Number)
+  );
 
+  return satirlar.map((satir) => {
+    const yemekAlerjenleri = String(satir.alerjen_idler || "")
+      .split(",")
+      .filter(Boolean)
+      .map(Number);
+
+    return {
+      ...satir,
+      alerjen_uyarisi: yemekAlerjenleri.some(
+        (id) => tercihler.has(id)
+      )
+    };
+  });
+}
 async function gunMenusu(req, res) {
   const { yemekhane_id, ogun_id, tarih } = req.query;
+
   if (!yemekhane_id || !ogun_id) {
-    return res.status(400).json({ mesaj: "yemekhane_id ve ogun_id zorunludur." });
+    return res.status(400).json({
+      mesaj: "yemekhane_id ve ogun_id zorunludur."
+    });
   }
+
   const gun = tarih || bugunTarih();
   const r = await redisClient();
   const anahtar = `menu:${yemekhane_id}:${gun}:${ogun_id}`;
   const onbellek = await r.get(anahtar);
+
+  let satirlar;
+
   if (onbellek) {
     console.log(`[onbellek HIT] ${anahtar}`);
-    return res.json(JSON.parse(onbellek));
+    satirlar = JSON.parse(onbellek);
+  } else {
+    console.log(`[onbellek MISS] ${anahtar}`);
+    satirlar = await gunMenusunuGetir(yemekhane_id, ogun_id, gun);
+
+    await r.set(anahtar, JSON.stringify(satirlar), {
+      EX: gunSonunaKalanSaniye()
+    });
   }
-  console.log(`[onbellek MISS] ${anahtar}`);
-  const satirlar = await gunMenusunuGetir(yemekhane_id, ogun_id, gun);
- await r.set(anahtar, JSON.stringify(satirlar), {
-  EX: gunSonunaKalanSaniye()
-});
-  res.json(satirlar);
+
+  const sonuc = await alerjenUyarilariniEkle(
+    satirlar,
+    req.kullaniciId
+  );
+
+  res.json(sonuc);
 }
 
 async function haftalikMenu(req, res) {
@@ -93,6 +127,7 @@ async function haftalikMenu(req, res) {
 
     return {
       ...menu,
+      yarim_porsiyon_uygun: [2, 3].includes(Number(menu.ogun_id)),
       fiyat: kullanici.rol === "ogrenci"
         ? menu.ogrenci_fiyati
         : menu.personel_fiyati,

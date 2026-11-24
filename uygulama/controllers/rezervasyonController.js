@@ -1,9 +1,22 @@
 const { rezervasyonYap, rezervasyonIptal, kullaniciRezervasyonlariGetir } = require("../veri/rezervasyonVeri");
 
 async function rezervasyonYapHandler(req, res) {
-  const { menu_id } = req.body;
-  if (!menu_id) return res.status(400).json({ mesaj: "menu_id zorunludur." });
-  const sonuc = await rezervasyonYap(req.kullaniciId, menu_id);
+  const { menu_id, porsiyon = "tam" } = req.body;
+
+  if (!Number.isInteger(menu_id) || menu_id <= 0) {
+    return res.status(400).json({ mesaj: "Geçerli bir menü seçiniz." });
+  }
+
+  if (!["tam", "yarim"].includes(porsiyon)) {
+    return res.status(400).json({ mesaj: "Geçersiz porsiyon seçimi." });
+  }
+
+  const sonuc = await rezervasyonYap(
+    req.kullaniciId,
+    menu_id,
+    porsiyon
+  );
+
   res.status(201).json(sonuc);
 }
 
